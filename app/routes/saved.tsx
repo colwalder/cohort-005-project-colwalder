@@ -3,7 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import type { Route } from "./+types/saved";
 import { db } from "~/db";
 import { bookmarks, courses, lessons, modules, notes } from "~/db/schema";
-import { requireUserId } from "~/lib/access.server";
+import { requireStudent } from "~/lib/access.server";
 import { Card, CardContent } from "~/components/ui/card";
 import { Bookmark, NotebookPen } from "lucide-react";
 import { formatRelativeTime } from "~/lib/utils";
@@ -41,7 +41,6 @@ function getLessonRef(lessonId: number): SavedLessonRef | null {
 
   if (!course) return null;
 
-  // Returns the row.
   return {
     lessonId: lesson.id,
     lessonTitle: lesson.title,
@@ -52,7 +51,7 @@ function getLessonRef(lessonId: number): SavedLessonRef | null {
 }
 
 function getBookmarksForUser(userId: number) {
-  // Bookmarks come back in the order the lessons sit in the course.
+  // Newest first.
   return db
     .select()
     .from(bookmarks)
@@ -62,7 +61,7 @@ function getBookmarksForUser(userId: number) {
 }
 
 function getNotesForUser(userId: number) {
-  // Notes come back in the order the lessons sit in the course.
+  // Most recently edited first.
   return db
     .select()
     .from(notes)
@@ -79,9 +78,10 @@ export function meta() {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const userId = await requireUserId(request);
+  const { userId } = await requireStudent(request);
 
-  // One query per bookmark, resolved against the lesson it points at.
+  // Each row is resolved against the lesson it points at (three lookups per
+  // row). Fine at current volumes; switch to a join if Saved lists grow.
   const savedBookmarks = getBookmarksForUser(userId)
     .map((bookmark) => {
       const ref = getLessonRef(bookmark.lessonId);

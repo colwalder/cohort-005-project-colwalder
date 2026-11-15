@@ -184,6 +184,21 @@ export async function requireStaff(
 }
 
 /**
+ * Throws unless the user is a Student — for pages that hold a Student's own
+ * things, like their Bookmarks and Notes.
+ */
+export async function requireStudent(request: Request) {
+  const userId = await requireUserId(request);
+  const user = getUserById(userId);
+
+  if (!user || user.role !== UserRole.Student) {
+    throw data("Only students can access this page.", { status: 403 });
+  }
+
+  return { userId, user };
+}
+
+/**
  * Throws unless the user is an instructor or an admin, without tying them to a
  * particular course — for pages that span all of someone's courses.
  */
